@@ -1,0 +1,101 @@
+services:
+  wildfly:
+    image: quay.io/wildfly/wildfly:latest
+    container_name: mw-wildfly
+    hostname: wildfly
+    ports:
+      - "8080:8080"
+      - "9990:9990"
+    command: >
+      bash -c "/opt/jboss/wildfly/bin/add-user.sh admin 'admin123' --silent &&
+               /opt/jboss/wildfly/bin/standalone.sh -b 0.0.0.0 -bmanagement 0.0.0.0"
+    volumes:
+      - ./apps:/opt/jboss/wildfly/standalone/deployments:z
+      - ./logs/wildfly:/opt/jboss/wildfly/standalone/log:z
+    networks:
+      - mw-net
+    restart: unless-stopped
+
+  tomcat:
+    build:
+      context: ./tomcat
+      dockerfile: Dockerfile
+    image: local/mw-tomcat:10.1.33
+    container_name: mw-tomcat
+    hostname: tomcat
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./apps:/opt/tomcat/webapps:z
+      - ./logs/tomcat:/opt/tomcat/logs:z
+    networks:
+      - mw-net
+    restart: unless-stopped
+
+  liberty:
+    image: icr.io/appcafe/open-liberty:full-java17-openj9-ubi
+    container_name: mw-liberty
+    hostname: liberty
+    ports:
+      - "9080:9080"
+      - "9443:9443"
+    volumes:
+      - ./liberty/server.xml:/config/server.xml:ro,z
+      - ./apps/sample.war:/config/apps/sample.war:ro,z
+      - ./logs/liberty:/logs:z
+    networks:
+      - mw-net
+    restart: unless-stopped
+
+  weblogic:
+    image: gstvo2k15/weblogic:12.2.1.4-developer
+    container_name: mw-weblogic
+    hostname: weblogic
+    ports:
+      - "7001:7001"
+      - "9002:9002"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 16384
+    mem_limit: 3g
+    shm_size: 1g
+    environment:
+      DOMAIN_NAME: base_domain
+      ADMIN_NAME: AdminServer
+      ADMIN_LISTEN_PORT: "7001"
+      ADMINISTRATION_PORT_ENABLED: "false"
+      ADMINISTRATION_PORT: "9002"
+      DEBUG_FLAG: "false"
+      PRODUCTION_MODE: "dev"
+      USER_MEM_ARGS: "-Xms512m -Xmx1024m -Djava.security.egd=file:/dev/./urandom"
+      ORACLE_HOME: /u01/oracle
+      JAVA_HOME: /usr/java/jdk1.8
+    volumes:
+      - ./weblogic/properties/domain.properties:/u01/oracle/properties/domain.properties:ro,z
+    networks:
+      - mw-net
+    restart: "no"
+
+  apache:
+    build:
+      context: ./apache
+      dockerfile: Dockerfile
+    image: local/mw-httpd:ubi9
+    container_name: mw-apache
+    hostname: apache
+    ports:
+      - "8088:8080"
+    depends_on:
+      - tomcat
+      - wildfly
+      - liberty
+    networks:
+      - mw-net
+    restart: unless-stopped
+
+networks:
+  mw-net:
+    name: mw-net
+    driver: bridge
