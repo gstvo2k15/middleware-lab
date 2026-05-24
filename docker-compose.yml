@@ -53,13 +53,15 @@ services:
     hostname: weblogic
     ports:
       - "7001:7001"
+      - "8001:8001"
+      - "8002:8002"
       - "9002:9002"
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
       nproc: 16384
-    mem_limit: 3g
+    mem_limit: 4g
     shm_size: 1g
     environment:
       DOMAIN_NAME: base_domain
@@ -69,11 +71,13 @@ services:
       ADMINISTRATION_PORT: "9002"
       DEBUG_FLAG: "false"
       PRODUCTION_MODE: "dev"
-      USER_MEM_ARGS: "-Xms512m -Xmx1024m -Djava.security.egd=file:/dev/./urandom"
+      USER_MEM_ARGS: "-Xms512m -Xmx1536m -Djava.security.egd=file:/dev/./urandom"
       ORACLE_HOME: /u01/oracle
       JAVA_HOME: /usr/java/jdk1.8
     volumes:
       - ./weblogic/properties/domain.properties:/u01/oracle/properties/domain.properties:ro,z
+      - ./weblogic/wlst:/u01/oracle/wlst:ro,z
+      - ./apps:/u01/oracle/deployments:ro,z
     networks:
       - mw-net
     restart: "no"
